@@ -54,8 +54,6 @@ func (b *Buffer) CycleAutocomplete(forward bool) {
 	end := c.Loc
 	if prevSuggestion < len(b.Suggestions) && prevSuggestion >= 0 {
 		start = end.Move(-util.CharacterCountInString(b.Completions[prevSuggestion]), b)
-	} else {
-		// end = start.Move(1, b)
 	}
 
 	b.Replace(start, end, b.Completions[b.CurSuggestion])
@@ -71,11 +69,11 @@ func GetWord(b *Buffer) ([]byte, int) {
 	l := b.LineBytes(c.Y)
 	l = util.SliceStart(l, c.X)
 
-	if c.X == 0 || util.IsWhitespace(b.RuneAt(c.Loc)) {
+	if c.X == 0 || util.IsWhitespace(b.RuneAt(c.Loc.Move(-1, b))) {
 		return []byte{}, -1
 	}
 
-	if util.IsNonAlphaNumeric(b.RuneAt(c.Loc)) {
+	if util.IsNonAlphaNumeric(b.RuneAt(c.Loc.Move(-1, b))) {
 		return []byte{}, c.X
 	}
 

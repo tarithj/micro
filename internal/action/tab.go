@@ -6,7 +6,7 @@ import (
 	"github.com/zyedidia/micro/v2/internal/display"
 	"github.com/zyedidia/micro/v2/internal/screen"
 	"github.com/zyedidia/micro/v2/internal/views"
-	"github.com/zyedidia/tcell"
+	"github.com/zyedidia/tcell/v2"
 )
 
 // The TabList is a list of tabs and a window to display the tab bar
@@ -175,6 +175,7 @@ func NewTabFromBuffer(x, y, width, height int, b *buffer.Buffer) *Tab {
 	t := new(Tab)
 	t.Node = views.NewRoot(x, y, width, height)
 	t.UIWindow = display.NewUIWindow(t.Node)
+	t.release = true
 
 	e := NewBufPaneFromBuf(b, t)
 	e.SetID(t.ID())
@@ -187,6 +188,7 @@ func NewTabFromPane(x, y, width, height int, pane Pane) *Tab {
 	t := new(Tab)
 	t.Node = views.NewRoot(x, y, width, height)
 	t.UIWindow = display.NewUIWindow(t.Node)
+	t.release = true
 	pane.SetTab(t)
 	pane.SetID(t.ID())
 
@@ -220,9 +222,8 @@ func (t *Tab) HandleEvent(event tcell.Event) {
 			}
 
 			if wasReleased {
-				resizeID := t.GetMouseSplitID(buffer.Loc{mx, my})
-				if resizeID != 0 {
-					t.resizing = t.GetNode(uint64(resizeID))
+				t.resizing = t.GetMouseSplitNode(buffer.Loc{mx, my})
+				if t.resizing != nil {
 					return
 				}
 

@@ -37,21 +37,45 @@ Here are the available options:
    closed cleanly. In the case of a system crash or a micro crash, the contents
    of the buffer can be recovered automatically by opening the file that was
    being edited before the crash, or manually by searching for the backup in
-   the backup directory. Backups are made in the background when a buffer is
-   modified and the latest backup is more than 8 seconds old, or when micro
-   detects a crash. It is highly recommended that you leave this feature
-   enabled.
+   the backup directory. Backups are made in the background for newly modified
+   buffers every 8 seconds, or when micro detects a crash.
 
     default value: `true`
+
+* `backupdir`: the directory micro should place backups in. For the default
+   value of `""` (empty string), the backup directory will be
+   `ConfigDir/backups`, which is `~/.config/micro/backups` by default. The
+   directory specified for backups will be created if it does not exist.
+
+    default value: `""` (empty string)
 
 * `basename`: in the infobar and tabbar, show only the basename of the file
    being edited rather than the full path.
 
     default value: `false`
 
+* `clipboard`: specifies how micro should access the system clipboard.
+   Possible values are:
+    * `external`: accesses clipboard via an external tool, such as xclip/xsel
+       or wl-clipboard on Linux, pbcopy/pbpaste on MacOS, and system calls on
+       Windows. On Linux, if you do not have one of the tools installed, or if
+       they are not working, micro will throw an error and use an internal
+       clipboard.
+    * `terminal`: accesses the clipboard via your terminal emulator. Note that
+       there is limited support among terminal emulators for this feature
+       (called OSC 52). Terminals that are known to work are Kitty (enable
+       reading with `clipboard_control` setting), iTerm2 (only copying),
+       st, rxvt-unicode and xterm if enabled (see `> help copypaste` for
+       details). Note that Gnome-terminal does not support this feature. With
+       this setting, copy-paste **will** work over ssh. See `> help copypaste`
+       for details.
+    * `internal`: micro will use an internal clipboard.
+
+    default value: `external`
+
 * `colorcolumn`: if this is not set to 0, it will display a column at the
-  specified column. This is useful if you want column 80 to be highlighted
-  special for example.
+   specified column. This is useful if you want column 80 to be highlighted
+   special for example.
 
 	default value: `0`
 
@@ -137,7 +161,7 @@ Here are the available options:
 
 * `ignorecase`: perform case-insensitive searches.
 
-	default value: `false`
+	default value: `true`
 
 * `indentchar`: sets the indentation character.
 
@@ -200,14 +224,20 @@ Here are the available options:
 
     default value: `false`
 
+* `permbackup`: this option causes backups (see `backup` option) to be
+   permanently saved. With permanent backups, micro will not remove backups when
+   files are closed and will never apply them to existing files. Use this option
+   if you are interested in manually managing your backup files.
+
+    default value: `false`
+
 * `pluginchannels`: list of URLs pointing to plugin channels for downloading and
    installing plugins. A plugin channel consists of a json file with links to
    plugin repos, which store information about plugin versions and download URLs.
    By default, this option points to the official plugin channel hosted on GitHub
    at https://github.com/micro-editor/plugin-channel.
 
-    default value: `https://raw.githubusercontent.com/micro-editor/plugin-channel
-                    /master/channel.json`
+    default value: `https://raw.githubusercontent.com/micro-editor/plugin-channel/master/channel.json`
 
 * `pluginrepos`: a list of links to plugin repositories.
 
@@ -362,6 +392,83 @@ Any option you set in the editor will be saved to the file
 ~/.config/micro/settings.json so, in effect, your configuration file will be 
 created for you. If you'd like to take your configuration with you to another
 machine, simply copy the settings.json to the other machine.
+
+## Settings.json file
+
+The settings.json file should go in your configuration directory (by default
+at `~/.config/micro`), and should contain only options which have been modified
+from their default setting. Here is the full list of options in json format,
+so that you can see what the formatting should look like.
+
+```json
+{
+    "autoclose": true,
+    "autoindent": true,
+    "autosave": 0,
+    "autosu": false,
+    "backup": true,
+    "backupdir": "",
+    "basename": false,
+    "clipboard": "external",
+    "colorcolumn": 0,
+    "colorscheme": "default",
+    "comment": true,
+    "cursorline": true,
+    "diff": true,
+    "diffgutter": false,
+    "divchars": "|-",
+    "divreverse": true,
+    "encoding": "utf-8",
+    "eofnewline": true,
+    "fastdirty": false,
+    "fileformat": "unix",
+    "filetype": "unknown",
+    "ftoptions": true,
+    "ignorecase": false,
+    "indentchar": " ",
+    "infobar": true,
+    "initlua": true,
+    "keepautoindent": false,
+    "keymenu": false,
+    "linter": true,
+    "literate": true,
+    "matchbrace": true,
+    "mkparents": false,
+    "mouse": true,
+    "parsecursor": false,
+    "paste": false,
+    "permbackup": false,
+    "pluginchannels": [
+        "https://raw.githubusercontent.com/micro-editor/plugin-channel/master/channel.json"
+    ],
+    "pluginrepos": [],
+    "readonly": false,
+    "relativeruler": false,
+    "rmtrailingws": false,
+    "ruler": true,
+    "savecursor": false,
+    "savehistory": true,
+    "saveundo": false,
+    "scrollbar": false,
+    "scrollmargin": 3,
+    "scrollspeed": 2,
+    "smartpaste": true,
+    "softwrap": false,
+    "splitbottom": true,
+    "splitright": true,
+    "status": true,
+    "statusformatl": "$(filename) $(modified)($(line),$(col)) $(status.paste)| ft:$(opt:filetype) | $(opt:fileformat) | $(opt:encoding)",
+    "statusformatr": "$(bind:ToggleKeyMenu): bindings, $(bind:ToggleHelp): help",
+    "statusline": true,
+    "sucmd": "sudo",
+    "syntax": true,
+    "tabmovement": false,
+    "tabsize": 4,
+    "tabstospaces": false,
+    "useprimary": true,
+    "xterm": false
+}
+```
 
 ## Global and local settings
 

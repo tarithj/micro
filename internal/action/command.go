@@ -13,6 +13,7 @@ import (
 
 	shellquote "github.com/kballard/go-shellquote"
 	"github.com/zyedidia/micro/v2/internal/buffer"
+	"github.com/zyedidia/micro/v2/internal/clipboard"
 	"github.com/zyedidia/micro/v2/internal/config"
 	"github.com/zyedidia/micro/v2/internal/screen"
 	"github.com/zyedidia/micro/v2/internal/shell"
@@ -505,6 +506,12 @@ func SetGlobalOptionNative(option string, nativeValue interface{}) error {
 			}
 		} else if option == "paste" {
 			screen.Screen.SetPaste(nativeValue.(bool))
+		} else if option == "clipboard" {
+			m := clipboard.SetMethod(nativeValue.(string))
+			err := clipboard.Initialize(m)
+			if err != nil {
+				return err
+			}
 		} else {
 			for _, pl := range config.Plugins {
 				if option == pl.Name {
@@ -634,7 +641,12 @@ func (h *BufPane) ShowKeyCmd(args []string) {
 		return
 	}
 
-	if action, ok := config.Bindings[args[0]]; ok {
+	event, err := findEvent(args[0])
+	if err != nil {
+		InfoBar.Error(err)
+		return
+	}
+	if action, ok := config.Bindings["buffer"][event.Name()]; ok {
 		InfoBar.Message(action)
 	} else {
 		InfoBar.Message(args[0], " has no binding")
@@ -805,7 +817,7 @@ func (h *BufPane) ReplaceCmd(args []string) {
 			return l.GreaterEqual(start) && l.LessEqual(end)
 		}
 
-		searchLoc := start
+		searchLoc := h.Cursor.Loc
 		var doReplacement func()
 		doReplacement = func() {
 			locs, found, err := h.Buf.FindNext(search, start, end, searchLoc, true, !noRegex)
@@ -816,6 +828,7 @@ func (h *BufPane) ReplaceCmd(args []string) {
 			if !found || !inRange(locs[0]) || !inRange(locs[1]) {
 				h.Cursor.ResetSelection()
 				h.Buf.RelocateCursors()
+
 				return
 			}
 
@@ -831,7 +844,9 @@ func (h *BufPane) ReplaceCmd(args []string) {
 
 					searchLoc = locs[0]
 					searchLoc.X += nrunes + locs[0].Diff(locs[1], h.Buf)
-					end.Move(nrunes, h.Buf)
+					if end.Y == locs[1].Y {
+						end = end.Move(nrunes, h.Buf)
+					}
 					h.Cursor.Loc = searchLoc
 					nreplaced++
 				} else if !canceled && !yes {

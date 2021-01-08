@@ -7,13 +7,13 @@ import (
 	"time"
 
 	shellquote "github.com/kballard/go-shellquote"
-	"github.com/zyedidia/clipboard"
 	"github.com/zyedidia/micro/v2/internal/buffer"
+	"github.com/zyedidia/micro/v2/internal/clipboard"
 	"github.com/zyedidia/micro/v2/internal/config"
 	"github.com/zyedidia/micro/v2/internal/screen"
 	"github.com/zyedidia/micro/v2/internal/shell"
 	"github.com/zyedidia/micro/v2/internal/util"
-	"github.com/zyedidia/tcell"
+	"github.com/zyedidia/tcell/v2"
 )
 
 // ScrollUp is not an action
@@ -59,7 +59,7 @@ func (h *BufPane) MousePress(e *tcell.EventMouse) bool {
 				h.doubleClick = false
 
 				h.Cursor.SelectLine()
-				h.Cursor.CopySelection("primary")
+				h.Cursor.CopySelection(clipboard.PrimaryReg)
 			} else {
 				// Double click
 				h.lastClickTime = time.Now()
@@ -68,7 +68,7 @@ func (h *BufPane) MousePress(e *tcell.EventMouse) bool {
 				h.tripleClick = false
 
 				h.Cursor.SelectWord()
-				h.Cursor.CopySelection("primary")
+				h.Cursor.CopySelection(clipboard.PrimaryReg)
 			}
 		} else {
 			h.doubleClick = false
@@ -92,6 +92,7 @@ func (h *BufPane) MousePress(e *tcell.EventMouse) bool {
 
 	h.Cursor.StoreVisualX()
 	h.lastLoc = mouseLoc
+	h.Relocate()
 	return true
 }
 
@@ -816,6 +817,30 @@ func (h *BufPane) FindLiteral() bool {
 	return h.find(false)
 }
 
+// Search searches for a given string/regex in the buffer and selects the next
+// match if a match is found
+// This function affects lastSearch and lastSearchRegex (saved searches) for
+// use with FindNext and FindPrevious
+func (h *BufPane) Search(str string, useRegex bool, searchDown bool) error {
+	match, found, err := h.Buf.FindNext(str, h.Buf.Start(), h.Buf.End(), h.Cursor.Loc, searchDown, useRegex)
+	if err != nil {
+		return err
+	}
+	if found {
+		h.Cursor.SetSelectionStart(match[0])
+		h.Cursor.SetSelectionEnd(match[1])
+		h.Cursor.OrigSelection[0] = h.Cursor.CurSelection[0]
+		h.Cursor.OrigSelection[1] = h.Cursor.CurSelection[1]
+		h.Cursor.GotoLoc(h.Cursor.CurSelection[1])
+		h.lastSearch = str
+		h.lastSearchRegex = useRegex
+		h.Relocate()
+	} else {
+		h.Cursor.ResetSelection()
+	}
+	return nil
+}
+
 func (h *BufPane) find(useRegex bool) bool {
 	h.searchOrig = h.Cursor.Loc
 	prompt := "Find: "
@@ -937,13 +962,9 @@ func (h *BufPane) Redo() bool {
 // Copy the selection to the system clipboard
 func (h *BufPane) Copy() bool {
 	if h.Cursor.HasSelection() {
-		h.Cursor.CopySelection("clipboard")
+		h.Cursor.CopySelection(clipboard.ClipboardReg)
 		h.freshClip = true
-		if clipboard.Unsupported {
-			InfoBar.Message("Copied selection (install xclip for external clipboard)")
-		} else {
-			InfoBar.Message("Copied selection")
-		}
+		InfoBar.Message("Copied selection")
 	}
 	h.Relocate()
 	return true
@@ -955,13 +976,9 @@ func (h *BufPane) CopyLine() bool {
 		return false
 	} else {
 		h.Cursor.SelectLine()
-		h.Cursor.CopySelection("clipboard")
+		h.Cursor.CopySelection(clipboard.ClipboardReg)
 		h.freshClip = true
-		if clipboard.Unsupported {
-			InfoBar.Message("Copied line (install xclip for external clipboard)")
-		} else {
-			InfoBar.Message("Copied line")
-		}
+		InfoBar.Message("Copied line")
 	}
 	h.Cursor.Deselect(true)
 	h.Relocate()
@@ -974,15 +991,15 @@ func (h *BufPane) CutLine() bool {
 	if !h.Cursor.HasSelection() {
 		return false
 	}
-	if h.freshClip == true {
+	if h.freshClip {
 		if h.Cursor.HasSelection() {
-			if clip, err := clipboard.ReadAll("clipboard"); err != nil {
-				// messenger.Error(err)
+			if clip, err := clipboard.Read(clipboard.ClipboardReg); err != nil {
+				InfoBar.Error(err)
 			} else {
-				clipboard.WriteAll(clip+string(h.Cursor.GetSelection()), "clipboard")
+				clipboard.WriteMulti(clip+string(h.Cursor.GetSelection()), clipboard.ClipboardReg, h.Cursor.Num, h.Buf.NumCursors())
 			}
 		}
-	} else if time.Since(h.lastCutTime)/time.Second > 10*time.Second || h.freshClip == false {
+	} else if time.Since(h.lastCutTime)/time.Second > 10*time.Second || !h.freshClip {
 		h.Copy()
 	}
 	h.freshClip = true
@@ -997,7 +1014,7 @@ func (h *BufPane) CutLine() bool {
 // Cut the selection to the system clipboard
 func (h *BufPane) Cut() bool {
 	if h.Cursor.HasSelection() {
-		h.Cursor.CopySelection("clipboard")
+		h.Cursor.CopySelection(clipboard.ClipboardReg)
 		h.Cursor.DeleteSelection()
 		h.Cursor.ResetSelection()
 		h.freshClip = true
@@ -1123,16 +1140,24 @@ func (h *BufPane) MoveLinesDown() bool {
 // Paste whatever is in the system clipboard into the buffer
 // Delete and paste if the user has a selection
 func (h *BufPane) Paste() bool {
-	clip, _ := clipboard.ReadAll("clipboard")
-	h.paste(clip)
+	clip, err := clipboard.ReadMulti(clipboard.ClipboardReg, h.Cursor.Num, h.Buf.NumCursors())
+	if err != nil {
+		InfoBar.Error(err)
+	} else {
+		h.paste(clip)
+	}
 	h.Relocate()
 	return true
 }
 
 // PastePrimary pastes from the primary clipboard (only use on linux)
 func (h *BufPane) PastePrimary() bool {
-	clip, _ := clipboard.ReadAll("primary")
-	h.paste(clip)
+	clip, err := clipboard.ReadMulti(clipboard.PrimaryReg, h.Cursor.Num, h.Buf.NumCursors())
+	if err != nil {
+		InfoBar.Error(err)
+	} else {
+		h.paste(clip)
+	}
 	h.Relocate()
 	return true
 }
@@ -1153,11 +1178,7 @@ func (h *BufPane) paste(clip string) {
 	h.Buf.Insert(h.Cursor.Loc, clip)
 	// h.Cursor.Loc = h.Cursor.Loc.Move(Count(clip), h.Buf)
 	h.freshClip = false
-	if clipboard.Unsupported {
-		InfoBar.Message("Pasted clipboard (install xclip for external clipboard)")
-	} else {
-		InfoBar.Message("Pasted clipboard")
-	}
+	InfoBar.Message("Pasted clipboard")
 }
 
 // JumpToMatchingBrace moves the cursor to the matching brace if it is
@@ -1174,6 +1195,7 @@ func (h *BufPane) JumpToMatchingBrace() bool {
 				} else {
 					h.Cursor.GotoLoc(matchingBrace.Move(1, h.Buf))
 				}
+				break
 			} else {
 				return false
 			}
@@ -1416,6 +1438,18 @@ func (h *BufPane) ToggleOverwriteMode() bool {
 
 // Escape leaves current mode
 func (h *BufPane) Escape() bool {
+	return true
+}
+
+// Deselect deselects on the current cursor
+func (h *BufPane) Deselect() bool {
+	h.Cursor.Deselect(true)
+	return true
+}
+
+// ClearInfo clears the infobar
+func (h *BufPane) ClearInfo() bool {
+	InfoBar.Message("")
 	return true
 }
 

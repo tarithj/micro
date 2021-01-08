@@ -17,7 +17,7 @@ Here is a picture of micro editing its source code.
 
 ![Screenshot](./assets/micro-solarized.png)
 
-To see more screenshots of micro, showcasing some of the default color schemes, see [here](http://zbyedidia.webfactional.com/micro/screenshots.html).
+To see more screenshots of micro, showcasing some of the default color schemes, see [here](https://micro-editor.github.io).
  
 You can also check out the website for Micro at https://micro-editor.github.io.
 
@@ -32,7 +32,7 @@ You can also check out the website for Micro at https://micro-editor.github.io.
   - [macOS terminal](#macos-terminal)
   - [Linux clipboard support](#linux-clipboard-support)
   - [Colors and syntax highlighting](#colors-and-syntax-highlighting)
-  - [Plan9, Cygwin, Mingw](#plan9-cygwin-mingw)
+  - [Cygwin, Mingw, Plan9](#cygwin-mingw-plan9)
 - [Usage](#usage)
 - [Documentation and Help](#documentation-and-help)
 - [Contributing](#contributing)
@@ -79,6 +79,8 @@ If you want more information about ways to install micro, see this [wiki page](h
 Use `micro -version` to get the version information after installing. It is only guaranteed that you are installing the most recent
 stable version if you install from the prebuilt binaries, Homebrew, or Snap.
 
+A desktop entry file and man page can be found in the [assets/packaging](https://github.com/zyedidia/micro/tree/master/assets/packaging) directory.
+
 ### Prebuilt binaries
 
 All you need to install micro is one file, the binary itself. It's as simple as that!
@@ -95,7 +97,9 @@ You can easily install micro by running
 curl https://getmic.ro | bash
 ```
 
-The script will place the micro binary in the current directory. See its [GitHub repository](https://github.com/benweissmann/getmic.ro) for more information.
+The script will place the micro binary in the current directory. From there, you can move it to a directory on your path of your choosing (e.g. `sudo mv micro /usr/bin`). See its [GitHub repository](https://github.com/benweissmann/getmic.ro) for more information.
+
+To uninstall micro, simply remove the binary, and the configuration directory at `~/.config/micro`.
 
 ### Package managers
 
@@ -123,9 +127,10 @@ Micro is also available through other package managers on Linux such as apt, dnf
 for other operating systems. These packages are not guaranteed to be up-to-date.
 
 * Linux: Available in distro-specific package managers.
-    * `apt install micro` (Ubuntu 20.04 `focal`, and Debian `unstable | testing | buster-backports`).
+    * `apt install micro` (Ubuntu 20.04 `focal`, and Debian `unstable | testing | buster-backports`). At the moment, this package (2.0.1-1) is outdated and has a known bug where debug mode is enabled.
     * `dnf install micro` (Fedora).
     * `yay -S micro` (Arch Linux).
+    * `eopkg install micro` (Solus).
     * See [wiki](https://github.com/zyedidia/micro/wiki/Installing-Micro) for details about CRUX, Termux.
 * Windows: [Chocolatey](https://chocolatey.org) and [Scoop](https://github.com/lukesampson/scoop).
     * `choco install micro`.

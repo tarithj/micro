@@ -1,14 +1,14 @@
 package screen
 
 import (
-	"fmt"
+	"errors"
+	"log"
 	"os"
 	"sync"
-	"unicode"
 
 	"github.com/zyedidia/micro/v2/internal/config"
 	"github.com/zyedidia/micro/v2/internal/util"
-	"github.com/zyedidia/tcell"
+	"github.com/zyedidia/tcell/v2"
 )
 
 // Screen is the tcell screen we use to draw to the terminal
@@ -18,6 +18,9 @@ import (
 // screen. TODO: maybe we should worry about polling and drawing at the
 // same time too.
 var Screen tcell.Screen
+
+// Events is the channel of tcell events
+var Events chan (tcell.Event)
 
 // The lock is necessary since the screen is polled on a separate thread
 var lock sync.Mutex
@@ -98,7 +101,7 @@ func ShowCursor(x, y int) {
 // SetContent sets a cell at a point on the screen and makes sure that it is
 // synced with the last cursor location
 func SetContent(x, y int, mainc rune, combc []rune, style tcell.Style) {
-	if !unicode.IsPrint(mainc) {
+	if !Screen.CanDisplay(mainc, true) {
 		mainc = '�'
 	}
 
@@ -131,7 +134,7 @@ func TempStart(screenWasNil bool) {
 }
 
 // Init creates and initializes the tcell screen
-func Init() {
+func Init() error {
 	drawChan = make(chan bool, 8)
 
 	// Should we enable true color?
@@ -142,30 +145,67 @@ func Init() {
 	}
 
 	var oldTerm string
-	if config.GetGlobalOption("xterm").(bool) {
+	modifiedTerm := false
+	setXterm := func() {
 		oldTerm = os.Getenv("TERM")
 		os.Setenv("TERM", "xterm-256color")
+		modifiedTerm = true
+	}
+
+	if config.GetGlobalOption("xterm").(bool) {
+		setXterm()
 	}
 
 	// Initilize tcell
 	var err error
 	Screen, err = tcell.NewScreen()
 	if err != nil {
-		fmt.Println(err)
-		fmt.Println("Fatal: Micro could not initialize a Screen.")
-		os.Exit(1)
+		log.Println("Warning: during screen initialization:", err)
+		log.Println("Falling back to TERM=xterm-256color")
+		setXterm()
+		Screen, err = tcell.NewScreen()
+		if err != nil {
+			return err
+		}
 	}
 	if err = Screen.Init(); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		return err
 	}
 
+	Screen.SetPaste(config.GetGlobalOption("paste").(bool))
+
 	// restore TERM
-	if config.GetGlobalOption("xterm").(bool) {
+	if modifiedTerm {
 		os.Setenv("TERM", oldTerm)
 	}
 
 	if config.GetGlobalOption("mouse").(bool) {
 		Screen.EnableMouse()
 	}
+
+	return nil
+}
+
+// InitSimScreen initializes a simulation screen for testing purposes
+func InitSimScreen() (tcell.SimulationScreen, error) {
+	drawChan = make(chan bool, 8)
+
+	// Initilize tcell
+	var err error
+	s := tcell.NewSimulationScreen("")
+	if s == nil {
+		return nil, errors.New("Failed to get a simulation screen")
+	}
+	if err = s.Init(); err != nil {
+		return nil, err
+	}
+
+	s.SetSize(80, 24)
+	Screen = s
+
+	if config.GetGlobalOption("mouse").(bool) {
+		Screen.EnableMouse()
+	}
+
+	return s, nil
 }

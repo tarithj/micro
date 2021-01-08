@@ -479,9 +479,7 @@ func (pl PluginPackages) GetAllVersions(name string) PluginVersions {
 	result := make(PluginVersions, 0)
 	p := pl.Get(name)
 	if p != nil {
-		for _, v := range p.Versions {
-			result = append(result, v)
-		}
+		result = append(result, p.Versions...)
 	}
 	return result
 }
@@ -607,7 +605,7 @@ func UpdatePlugins(out io.Writer, plugins []string) {
 	// if no plugins are specified, update all installed plugins.
 	if len(plugins) == 0 {
 		for _, p := range Plugins {
-			if !p.IsEnabled() {
+			if !p.IsEnabled() || p.Default {
 				continue
 			}
 			plugins = append(plugins, p.Name)

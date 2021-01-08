@@ -41,6 +41,9 @@ func CleanConfig() {
 		return
 	}
 
+	fmt.Println("Cleaning default settings")
+	config.WriteSettings(filepath.Join(config.ConfigDir, "settings.json"))
+
 	// detect unused options
 	var unusedOptions []string
 	defaultSettings := config.DefaultAllSettings()
@@ -94,14 +97,13 @@ func CleanConfig() {
 			file, e := os.Open(fname)
 
 			if e == nil {
-				defer file.Close()
-
 				decoder := gob.NewDecoder(file)
 				err = decoder.Decode(&buffer)
 
 				if err != nil && f.Name() != "history" {
 					badFiles = append(badFiles, fname)
 				}
+				file.Close()
 			}
 		}
 
@@ -111,15 +113,21 @@ func CleanConfig() {
 			fmt.Printf("Removing badly formatted files in %s\n", filepath.Join(config.ConfigDir, "buffers"))
 
 			if shouldContinue() {
+				removed := 0
 				for _, f := range badFiles {
 					err := os.Remove(f)
 					if err != nil {
 						fmt.Println(err)
 						continue
 					}
+					removed++
 				}
 
-				fmt.Println("Removed badly formatted files")
+				if removed == 0 {
+					fmt.Println("Failed to remove files")
+				} else {
+					fmt.Printf("Removed %d badly formatted files\n", removed)
+				}
 				fmt.Print("\n\n")
 			}
 		}

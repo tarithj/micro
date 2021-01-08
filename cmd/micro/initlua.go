@@ -50,12 +50,11 @@ func luaImportMicro() *lua.LTable {
 	ulua.L.SetField(pkg, "CurPane", luar.New(ulua.L, func() action.Pane {
 		return action.MainTab().CurPane()
 	}))
-	ulua.L.SetField(pkg, "CurTab", luar.New(ulua.L, func() *action.Tab {
-		return action.MainTab()
-	}))
+	ulua.L.SetField(pkg, "CurTab", luar.New(ulua.L, action.MainTab))
 	ulua.L.SetField(pkg, "Tabs", luar.New(ulua.L, func() *action.TabList {
 		return action.Tabs
 	}))
+	ulua.L.SetField(pkg, "Lock", luar.New(ulua.L, ulua.Lock))
 
 	return pkg
 }
@@ -145,6 +144,9 @@ func luaImportMicroUtil() *lua.LTable {
 	ulua.L.SetField(pkg, "GetLeadingWhitespace", luar.New(ulua.L, util.LuaGetLeadingWhitespace))
 	ulua.L.SetField(pkg, "IsWordChar", luar.New(ulua.L, util.LuaIsWordChar))
 	ulua.L.SetField(pkg, "String", luar.New(ulua.L, util.String))
+	ulua.L.SetField(pkg, "Unzip", luar.New(ulua.L, util.Unzip))
+	ulua.L.SetField(pkg, "Version", luar.New(ulua.L, util.Version))
+	ulua.L.SetField(pkg, "SemVersion", luar.New(ulua.L, util.SemVersion))
 	ulua.L.SetField(pkg, "CharacterCountInString", luar.New(ulua.L, util.CharacterCountInString))
 	ulua.L.SetField(pkg, "RuneStr", luar.New(ulua.L, func(r rune) string {
 		return string(r)

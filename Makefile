@@ -6,7 +6,8 @@ HASH = $(shell git rev-parse --short HEAD)
 DATE = $(shell GOOS=$(shell go env GOHOSTOS) GOARCH=$(shell go env GOHOSTARCH) \
 	go run tools/build-date.go)
 ADDITIONAL_GO_LINKER_FLAGS = $(shell GOOS=$(shell go env GOHOSTOS) \
-	GOARCH=$(shell go env GOHOSTARCH))
+	GOARCH=$(shell go env GOHOSTARCH) \
+	go run tools/info-plist.go "$(VERSION)")
 GOBIN ?= $(shell go env GOPATH)/bin
 GOVARS = -X github.com/zyedidia/micro/v2/internal/util.Version=$(VERSION) -X github.com/zyedidia/micro/v2/internal/util.CommitHash=$(HASH) -X 'github.com/zyedidia/micro/v2/internal/util.CompileDate=$(DATE)'
 DEBUGVAR = -X github.com/zyedidia/micro/v2/internal/util.Debug=ON
@@ -14,20 +15,20 @@ VSCODE_TESTS_BASE_URL = 'https://raw.githubusercontent.com/microsoft/vscode/e6a4
 
 # Builds micro after checking dependencies but without updating the runtime
 build:
-	go build -ldflags "-s -w $(GOVARS) $(ADDITIONAL_GO_LINKER_FLAGS)" ./cmd/micro
+	go build -trimpath -ldflags "-s -w $(GOVARS) $(ADDITIONAL_GO_LINKER_FLAGS)" ./cmd/micro
 
 build-dbg:
-	go build -ldflags "-s -w $(ADDITIONAL_GO_LINKER_FLAGS) $(DEBUGVAR)" ./cmd/micro
+	go build -trimpath -ldflags "-s -w $(ADDITIONAL_GO_LINKER_FLAGS) $(DEBUGVAR)" ./cmd/micro
 
 build-tags: fetch-tags
-	go build -ldflags "-s -w $(GOVARS) $(ADDITIONAL_GO_LINKER_FLAGS)" ./cmd/micro
+	go build -trimpath -ldflags "-s -w $(GOVARS) $(ADDITIONAL_GO_LINKER_FLAGS)" ./cmd/micro
 
 # Builds micro after building the runtime and checking dependencies
 build-all: runtime build
 
 # Builds micro without checking for dependencies
 build-quick:
-	go build -ldflags "-s -w $(GOVARS) $(ADDITIONAL_GO_LINKER_FLAGS)" ./cmd/micro
+	go build -trimpath -ldflags "-s -w $(GOVARS) $(ADDITIONAL_GO_LINKER_FLAGS)" ./cmd/micro
 
 # Same as 'build' but installs to $GOBIN afterward
 install:
@@ -64,6 +65,7 @@ testgen:
 
 test:
 	go test ./internal/...
+	go test ./cmd/...
 
 bench:
 	for i in 1 2 3; do \

@@ -1,9 +1,11 @@
 package util
 
 import (
+	"archive/zip"
 	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -46,7 +48,8 @@ func init() {
 		fmt.Println("Invalid version: ", Version, err)
 	}
 
-	if runtime.GOOS == "windows" {
+	_, wt := os.LookupEnv("WT_SESSION")
+	if runtime.GOOS == "windows" && !wt {
 		FakeCursor = true
 	}
 	Stdout = new(bytes.Buffer)
@@ -336,6 +339,10 @@ func GetModTime(path string) (time.Time, error) {
 // EscapePath replaces every path separator in a given path with a %
 func EscapePath(path string) string {
 	path = filepath.ToSlash(path)
+	if runtime.GOOS == "windows" {
+		// ':' is not valid in a path name on Windows but is ok on Unix
+		path = strings.Replace(path, ":", "%", -1)
+	}
 	return strings.Replace(path, "/", "%", -1)
 }
 
@@ -429,4 +436,57 @@ func ParseSpecial(s string) string {
 // String converts a byte array to a string (for lua plugins)
 func String(s []byte) string {
 	return string(s)
+}
+
+// Unzip unzips a file to given folder
+func Unzip(src, dest string) error {
+	r, err := zip.OpenReader(src)
+	if err != nil {
+		return err
+	}
+	defer r.Close()
+
+	os.MkdirAll(dest, 0755)
+
+	// Closure to address file descriptors issue with all the deferred .Close() methods
+	extractAndWriteFile := func(f *zip.File) error {
+		rc, err := f.Open()
+		if err != nil {
+			return err
+		}
+		defer rc.Close()
+
+		path := filepath.Join(dest, f.Name)
+
+		// Check for ZipSlip (Directory traversal)
+		if !strings.HasPrefix(path, filepath.Clean(dest)+string(os.PathSeparator)) {
+			return fmt.Errorf("illegal file path: %s", path)
+		}
+
+		if f.FileInfo().IsDir() {
+			os.MkdirAll(path, f.Mode())
+		} else {
+			os.MkdirAll(filepath.Dir(path), f.Mode())
+			f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
+			if err != nil {
+				return err
+			}
+			defer f.Close()
+
+			_, err = io.Copy(f, rc)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	for _, f := range r.File {
+		err := extractAndWriteFile(f)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
